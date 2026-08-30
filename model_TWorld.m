@@ -743,11 +743,6 @@ fcap_P=Afcaf*fcaf_P+Afcas*fcas_P;
 
 %% The rest (PKA)
 PCa_P = PCa * 1.9;  
-if celltype==1
-    PCa_P=PCa_P*1.025;
-elseif celltype==2
-    PCa_P=PCa_P*1.1;
-end
 
 PCaNa_P=1.1737/1.8969*0.00125*PCa_P;
 PCaK_P=1.1737/1.8969*3.574e-4*PCa_P;
