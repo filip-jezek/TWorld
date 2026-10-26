@@ -107,7 +107,9 @@ T-World supports a range of simulation scenarios (illustrated in sample scripts)
 
 ## License
 
-This project is licensed under the **GNU General Public License v3.0**. See the `LICENSE` file for details.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+
+Earlier versions of T-World were released under the GNU General Public License v3.0. If you obtained code from one of those versions, you may continue to use it under GPLv3, or under the MIT License instead.
 
 ## Contact
 
