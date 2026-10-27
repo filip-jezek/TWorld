@@ -77,6 +77,10 @@ Whole_cell_PP1 = parameters.Whole_cell_PP1;
 runSignallingPathway = parameters.runSignallingPathway;
 ISO = parameters.ISO;
 
+% Intracellular ATP dependence
+atpParams = struct('ATP_i', parameters.ATP_i, 'ADP_i', parameters.ADP_i, 'ATP_ref', parameters.ATP_ref, 'ADP_ref', parameters.ADP_ref, ...
+    'IKATP_Multiplier', parameters.IKATP_Multiplier);
+
 % Pre-calculating signalling constants if signalling is active
 if (runSignallingPathway == 1)
     constantsSig = getConstantsPKASignalling(ISO);
@@ -145,6 +149,11 @@ currents.fIKs_PKA = zeros(nPoints, 1);
 currents.fPLB_PKA = zeros(nPoints, 1);
 currents.fTnI_PKA = zeros(nPoints, 1);
 currents.fMyBPC_PKA = zeros(nPoints, 1);
+currents.IKATP = zeros(nPoints, 1);
+currents.fATP_SERCA = zeros(nPoints, 1);
+currents.fATP_NaK = zeros(nPoints, 1);
+currents.fATP_KATP = zeros(nPoints, 1);
+currents.fATP_PCa = zeros(nPoints, 1);
 
 %% Using model file to get variables of interest.
 i = 1;
@@ -157,7 +166,7 @@ for iBeat = 1:size(time, 1)
     for j=1:size(X{iBeat},1)
         IsJs=model(time{iBeat}(j),X{iBeat}(j,:)',0, cellType, ICaL_Multiplier, ...
             INa_Multiplier, Itos_Multiplier, Itof_Multiplier, INaL_Multiplier, IKr_Multiplier, IKs_Multiplier, IK1_Multiplier, IKb_Multiplier,INaCa_Multiplier,...
-            INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier,nao,cao,ko,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams);
+            INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier,nao,cao,ko,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams, atpParams);
 
         currents.time(i) = (iBeat-1)*parameters.bcl + time{iBeat}(j);
         currents.V(i) = X{iBeat}(j,1);
@@ -203,6 +212,11 @@ for iBeat = 1:size(time, 1)
         currents.fPLB_PKA(i) = IsJs(33);
         currents.fTnI_PKA(i) = IsJs(34);
         currents.fMyBPC_PKA(i) = IsJs(35);
+        currents.IKATP(i) = IsJs(36);
+        currents.fATP_SERCA(i) = IsJs(37);
+        currents.fATP_NaK(i) = IsJs(38);
+        currents.fATP_KATP(i) = IsJs(39);
+        currents.fATP_PCa(i) = IsJs(40);
 
         i = i + 1; % incrementing the index where everything is stored
     end

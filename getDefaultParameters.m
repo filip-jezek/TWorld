@@ -65,6 +65,19 @@ if (~isfield(parameters,'ISO')) parameters.ISO = 0; end % Nonspecific
 % Whole_cell_PP1
 % PKA_P
 
+% Intracellular nucleotides (mM), affecting SERCA, Na/K pump, sarcolemmal Ca pump
+% (Cortassa et al. 2006) and I_KATP (Ferrero et al. 1996, human version of Mena Tobar
+% et al. 2015). ATP_i and free ADP_i are held constant during a simulation (clamped).
+% All effects are normalised to the reference (saturating) state ATP_ref/ADP_ref, so
+% that ATP_i == ATP_ref and ADP_i == ADP_ref reproduce the unmodified model exactly.
+% ADP_ref is the creatine kinase equilibrium value at ATP_ref (see getCKEquilibriumADP).
+% For reduced ATP, use getCKEquilibriumADP to estimate the matching free ADP_i.
+if (~isfield(parameters,'ATP_ref')) parameters.ATP_ref = 8.0; end
+if (~isfield(parameters,'ADP_ref')) parameters.ADP_ref = getCKEquilibriumADP(parameters.ATP_ref); end
+if (~isfield(parameters,'ATP_i')) parameters.ATP_i = parameters.ATP_ref; end
+if (~isfield(parameters,'ADP_i')) parameters.ADP_i = parameters.ADP_ref; end
+if (~isfield(parameters,'IKATP_Multiplier')) parameters.IKATP_Multiplier = 1; end
+
 % An array of extra parameters (if user-defined, this can be a cell array
 % as well), passing other parameters not defined otherwise in this script
 if (~isfield(parameters,'extraParams')) parameters.extraParams = []; end

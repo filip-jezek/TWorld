@@ -16,8 +16,12 @@
 
 function [output] = model_TWorld(t,y,flag_ode, cellType, ICaL_Multiplier, ...
     INa_Multiplier, Itos_Multiplier, Itof_Multiplier, INaL_Multiplier, IKr_Multiplier, IKs_Multiplier, IK1_Multiplier, IKb_Multiplier,INaCa_Multiplier,...
-    INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier, ions_na_o,ions_ca_o,ions_k_o,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams)
+    INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier, ions_na_o,ions_ca_o,ions_k_o,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams, atpParams)
 
+% Intracellular ATP parameters (optional for backward compatibility; defaults reproduce the original model)
+if nargin < 38 || isempty(atpParams)
+    atpParams = getDefaultParameters(struct());
+end
 
 %% Handling sex-specific models:
 % the parameter sex can be used to set male/female model
@@ -215,7 +219,23 @@ ena_sl = (1/FoRT)*log(ions_na_o/ions_na_sl);
 ek = (1/FoRT)*log(ions_k_o/ions_k_i);	        
 eca_junc = (1/FoRT/2)*log(ions_ca_o/ions_ca_junc); 
 eca_sl = (1/FoRT/2)*log(ions_ca_o/ions_ca_sl);     
-ecl = (1/FoRT)*log(ions_cl_i/ions_cl_o);           
+ecl = (1/FoRT)*log(ions_cl_i/ions_cl_o);
+
+%% Intracellular ATP/ADP dependence
+% [ATP]_i and free [ADP]_i (mM) are clamped parameters. Each nucleotide effect is
+% normalised to its value at the reference state (ATP_ref, ADP_ref), i.e. the
+% saturating energetic state implicit in the original T-World calibration, so that
+% ATP_i == ATP_ref and ADP_i == ADP_ref reproduce the unmodified model exactly.
+ATP_i = max(atpParams.ATP_i, 1e-6);
+ADP_i = max(atpParams.ADP_i, 0);
+[gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP_i, ADP_i, cellType);
+[gSERCA_ref, gNaK_ref, gPCa_ref, KATP_open_ref] = getNucleotideFactors(atpParams.ATP_ref, atpParams.ADP_ref, cellType);
+fATP_SERCA = gSERCA / gSERCA_ref;
+fATP_NaK = gNaK / gNaK_ref;
+fATP_PCa = gPCa / gPCa_ref;
+% Only K_ATP opening in excess of that at the reference state is added, as any resting
+% K_ATP conductance is already absorbed in the calibrated background K currents.
+fATP_KATP = max(0, (KATP_open - KATP_open_ref) / (1 - KATP_open_ref));
 
 
 %% CaMK and Ca signalling
@@ -244,7 +264,7 @@ I_Nabk_sl = Fsl*GNaB*(membrane_v-ena_sl);
 I_Nabk = I_Nabk_junc+I_Nabk_sl;
 
 %% I_NaK: Na/K Pump Current
-IbarNaK = 2.10774 * INaK_Multiplier;     % [uA/uF]
+IbarNaK = 2.10774 * INaK_Multiplier * fATP_NaK;     % [uA/uF]
 KmNaip = 11;         
 KmNaip_PKA = 8.4615;
 KmKo = 1.5;         
@@ -273,6 +293,9 @@ xkb=1.0/(1.0+exp(-(membrane_v-10.8968)/(23.9871)));
 GKb= 0.010879* IKb_Multiplier;
 I_Kb=GKb*xkb*(membrane_v-ek);
 
+%% I_KATP (ATP-sensitive K current)
+[I_KATP_junc, I_KATP_sl] = getIKATP_Ferrero(membrane_v, ek, ions_k_o, ions_na_junc, ions_na_sl, ions_mg_i, Temp, FoRT, fATP_KATP, Fjunc, Fsl, atpParams.IKATP_Multiplier);
+I_KATP = I_KATP_junc + I_KATP_sl;
 
 %% I_to: Transient Outward K Current (slow and fast components)
 fItop = camk_f_RyR;
@@ -317,7 +340,7 @@ I_Catot = I_Ca+I_CaK+I_CaNa;
 [ I_NCX_sl, I_NCX_junc] = getINaCa_ORd2011(membrane_v,F,R,T, ions_na_junc, ions_na_sl, ions_na_i, ions_na_o, ions_ca_junc, ions_ca_sl, ions_ca_i, ions_ca_o, cellType, INaCa_Multiplier, INaCa_fraction_junc);
 
 %% I_pca (Sarcolemmal Ca Pump Current)
-IbarSLCaP = 0.02064  * IpCa_Multiplier;
+IbarSLCaP = 0.02064  * IpCa_Multiplier * fATP_PCa;
 KmPCa = 0.5e-3;     % [mM]
 
 Q10SLCaP = 2.35;    % [none]
@@ -335,7 +358,7 @@ I_Cabk = I_Cabk_junc+I_Cabk_sl;
 [J_SRCarel, J_SRleak, Jrel_ICaLdep, d_ryr_R, d_ryr_O, d_ryr_I, d_ryr_CaRI, d_ryr_R_p, d_ryr_O_p, d_ryr_I_p, d_ryr_CaRI_p, d_jrel_icaldep_act, d_jrel_icaldep_f1, d_jrel_icaldep_f2] = getJrel(ions_ca_junc, ions_ca_SR, I_Ca_junc, ryr_R, ryr_O, ryr_I, ryr_CaRI, ryr_R_p, ryr_O_p, ryr_I_p, jrel_icaldep_act, jrel_icaldep_f1, jrel_icaldep_f2, ryr_CaRI_p, camk_f_RyR, Jrel_Multiplier, extraParams);
 
 %% SR reuptake via SERCA
-J_serca = getJup(ions_ca_SR, ions_ca_i, Temp, camk_f_PLB, fPLB_PKA, casig_SERCA_act, cellType, Jup_Multiplier, extraParams);
+J_serca = getJup(ions_ca_SR, ions_ca_i, Temp, camk_f_PLB, fPLB_PKA, casig_SERCA_act, cellType, Jup_Multiplier, fATP_SERCA, extraParams);
 
 %% Stimulation 
 amp=stimAmp;
@@ -420,7 +443,7 @@ d_ions_na_sl = -I_Na_tot_sl*Cmem/(Vsl*Frdy)+J_na_juncsl/Vsl*(ions_na_junc-ions_n
 d_ions_na_i = J_na_slmyo/Vmyo*(ions_na_sl-ions_na_i);             % [mM/msec]
 
 % Potassium Concentration
-I_K_tot = I_to+I_Kr+I_Ks+I_K1-2*I_NaK+I_CaK+I_Kb+Istim;     % [uA/uF]
+I_K_tot = I_to+I_Kr+I_Ks+I_K1-2*I_NaK+I_CaK+I_Kb+I_KATP+Istim;     % [uA/uF]
 d_ions_k_i = -I_K_tot*Cmem/(Vmyo*Frdy);           % [mM/msec]
 
 % Cl concentrations
@@ -466,7 +489,7 @@ if flag_ode==1
 else
     output = [I_NaFast, I_NaL, I_to, I_Ca, I_Kr, I_Ks, I_K1, I_NCX_junc, I_NCX_sl, I_NaK, I_Kb, I_Nabk, I_Cabk, I_pca, J_SRCarel,...
         J_SRleak, I_ClCa, I_ClCa_junc, I_ClCa_sl, I_Clbk, I_Catot, J_serca, I_Ca_junc, I_Ca_sl,Jrel_ICaLdep, I_tof, I_tos, Ta, ...
-        fINa_PKA, fICaL_PKA, fINaK_PKA, fIKs_PKA, fPLB_PKA, fTnI_PKA, fMyBPC_PKA];
+        fINa_PKA, fICaL_PKA, fINaK_PKA, fIKs_PKA, fPLB_PKA, fTnI_PKA, fMyBPC_PKA, I_KATP, fATP_SERCA, fATP_NaK, fATP_KATP, fATP_PCa];
 end
 
 end
@@ -1326,11 +1349,11 @@ CaMKIILeakMultiplier = 1 + 2*camk_f_RyR;   % And it should be promoted by CaMKII
 J_SRleak = 1.59306e-06*(ions_ca_SR-ions_ca_junc) * nonlinearModifier * CaMKIILeakMultiplier;           % [mM/ms]
 end
 
-function J_serca = getJup(ions_ca_SR, ions_ca_i, Temp, camk_f_PLB, fPLB_PKA, casig_SERCA_act, cellType, Jup_Multiplier, extraParams)
+function J_serca = getJup(ions_ca_SR, ions_ca_i, Temp, camk_f_PLB, fPLB_PKA, casig_SERCA_act, cellType, Jup_Multiplier, fATP_SERCA, extraParams)
 % SR Ca uptake
 Qpow = (Temp-310)/10;
-Q10SRCaP = 2.6;          
-Vmax_SRCaP = 0.00543 * Jup_Multiplier;  
+Q10SRCaP = 2.6;
+Vmax_SRCaP = 0.00543 * Jup_Multiplier * fATP_SERCA; % fATP_SERCA: ATP availability scaling of pump turnover
 
 Kmr = 2.31442;               
 hillSRCaP =  1.02809;       
@@ -1354,6 +1377,56 @@ J_serca_np = Q10SRCaP^Qpow*Vmax_SRCaP*Vmax_mult*((ions_ca_i/Kmf)^hillSRCaP-(ions
 J_serca_p = Q10SRCaP^Qpow*Vmax_SRCaP*Vmax_mult*((ions_ca_i/Kmf_Phospho)^hillSRCaP-(ions_ca_SR/Kmr)^hillSRCaP)...
     /(1+(ions_ca_i/Kmf_Phospho)^hillSRCaP+(ions_ca_SR/Kmr)^hillSRCaP);
 J_serca = J_serca_np * (1 - phosphorylationTotal) + J_serca_p * phosphorylationTotal;
+end
+
+%% Nucleotide (ATP/ADP) dependence of pumps and K_ATP channels
+function [gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP, ADP, cellType)
+% Raw (un-normalised) ATP/ADP factors; ATP and ADP in mM.
+% Pumps follow Cortassa et al. 2006 (Biophys J 91:1564-1589), constants as in the
+% CellML encoding of that model: MgATP activation with competitive ADP inhibition.
+gSERCA = 1 / (0.01/ATP * (1 + ADP/0.14) + 1 + ADP/5.1);   % KmATP_SR, Ki_SR, Ki'_SR
+gNaK = 1 / (1 + 0.008/ATP * (1 + ADP/0.1));               % Km1AT_NaK, Ki1AD_NaK
+gPCa = 1 / (1 + 0.012/ATP * (1 + ADP/1.0)) + 1 / (1 + 0.23/ATP); % Km1ATP_CaP, KiADP_CaP, Km2ATP_CaP
+
+% K_ATP fraction of channels not inhibited by ATP (Ferrero et al. 1996), with the
+% human adaptation of Mena Tobar, Ferrero & Rodriguez Matas 2015 (CinC 42:645):
+% Km = alpha*(35.8 + 17.9*[ADP]^0.256) uM, H = 1.3 + 4.44*exp(-0.09*[ADP]), [ADP] in uM.
+if cellType == 1     % epi
+    alphaKATP = 1.0;
+elseif cellType == 2 % mid
+    alphaKATP = 0.86;
+else                 % endo
+    alphaKATP = 0.32;
+end
+ADP_uM = ADP * 1000;
+KmKATP = alphaKATP * (35.8 + 17.9 * ADP_uM^0.256); % [uM]
+HKATP = 1.3 + 4.44 * exp(-0.09 * ADP_uM);
+KATP_open = 1 / (1 + (ATP * 1000 / KmKATP)^HKATP);
+end
+
+%% IKATP
+function [I_KATP_junc, I_KATP_sl] = getIKATP_Ferrero(v, ek, ko, na_junc, na_sl, mg_i, Temp, FoRT, fATP_KATP, Fjunc, Fsl, IKATP_Multiplier)
+% ATP-sensitive K current after Ferrero et al. 1996 (Circ Res 79:208-221), with the
+% human maximal conductance of Mena Tobar et al. 2015 (CinC 42:645):
+% I_KATP = g0 * (Ko/5.4)^0.24 * f_ATP * f_M * f_N * f_T * (V - EK),
+% where f_ATP (here fATP_KATP) is the fraction of channels not inhibited by ATP.
+g0 = 4.5;               % [mS/uF]
+GKATP = g0 * (ko/5.4)^0.24 * IKATP_Multiplier;
+
+% Voltage-dependent intracellular Mg2+ and Na+ block
+deltaMg = 0.32;
+KhMg = 0.65 / sqrt(ko + 5) * exp(-2 * deltaMg * FoRT * v); % [mM]
+fM = 1 / (1 + mg_i / KhMg);
+deltaNa = 0.35;
+KhNa = 25.9 * exp(-deltaNa * FoRT * v); % [mM]
+fN_junc = 1 / (1 + (na_junc / KhNa)^2);
+fN_sl = 1 / (1 + (na_sl / KhNa)^2);
+
+% Temperature (Q10 = 1.3, reference 36 degC)
+fT = 1.3^((Temp - 273.15 - 36) / 10);
+
+I_KATP_junc = Fjunc * GKATP * fATP_KATP * fM * fN_junc * fT * (v - ek);
+I_KATP_sl = Fsl * GKATP * fATP_KATP * fM * fN_sl * fT * (v - ek);
 end
 
 function [Ta, d_contraction_XS, d_contraction_XW, d_contraction_Ca_TRPN, d_contraction_TmBlocked, d_contraction_ZETAS, d_contraction_ZETAW] = getContractionLand(ions_ca_i, contraction_XS, contraction_XW, contraction_Ca_TRPN, contraction_TmBlocked, contraction_ZETAS, contraction_ZETAW, fTnI_PKA, fMyBPC_PKA, extraParams)

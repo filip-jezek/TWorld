@@ -81,6 +81,10 @@ sex = parameters.sex;
 runSignallingPathway = parameters.runSignallingPathway;
 ISO = parameters.ISO;
 
+% Intracellular ATP dependence
+atpParams = struct('ATP_i', parameters.ATP_i, 'ADP_i', parameters.ADP_i, 'ATP_ref', parameters.ATP_ref, 'ADP_ref', parameters.ADP_ref, ...
+    'IKATP_Multiplier', parameters.IKATP_Multiplier);
+
 
 % An array of extra parameters (if user-defined, this can be a cell array
 % as well), passing other parameters not defined otherwise in this script
@@ -152,7 +156,7 @@ for n=1:beats
 %     if (runSignallingPathway == 1) % simulating signalling
         [time{n}, X{n}]=ode15s(model,[0 CL],X0,options,1,  cellType, ICaL_Multiplier, ...
             INa_Multiplier, Itos_Multiplier, Itof_Multiplier, INaL_Multiplier, IKr_Multiplier, IKs_Multiplier, IK1_Multiplier, IKb_Multiplier,INaCa_Multiplier,...
-            INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier,nao,cao,ko,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams);      
+            INaK_Multiplier, INab_Multiplier, ICab_Multiplier, IpCa_Multiplier, IClCa_Multiplier, IClb_Multiplier, Jrel_Multiplier,Jup_Multiplier,nao,cao,ko,ICaL_fraction_junc,INaCa_fraction_junc, PKA_P, Whole_cell_PP1, runSignallingPathway, constantsSig, sex, stimAmp, stimDur, vcParameters, apClamp, extraParams, atpParams);
 %     else 
 %         [time{n}, X{n}]=ode15s(model,[0 CL],X0,options,1,  cellType, ICaL_Multiplier, ...
 %             INa_Multiplier, Itos_Multiplier, Itof_Multiplier, INaL_Multiplier, IKr_Multiplier, IKs_Multiplier, IK1_Multiplier, IKb_Multiplier,INaCa_Multiplier,...
