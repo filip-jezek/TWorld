@@ -70,13 +70,20 @@ if (~isfield(parameters,'ISO')) parameters.ISO = 0; end % Nonspecific
 % et al. 2015). ATP_i and free ADP_i are held constant during a simulation (clamped).
 % All effects are normalised to the reference (saturating) state ATP_ref/ADP_ref, so
 % that ATP_i == ATP_ref and ADP_i == ADP_ref reproduce the unmodified model exactly.
-% ADP_ref is the creatine kinase equilibrium value at ATP_ref (see getCKEquilibriumADP).
-% For reduced ATP, use getCKEquilibriumADP to estimate the matching free ADP_i.
+% ADP_ref is the human creatine kinase equilibrium value at ATP_ref (getCKEquilibriumADP,
+% ~94 uM). For reduced ATP, set ADP_i from measured or published free ADP: once
+% phosphocreatine is exhausted the CK equilibrium no longer constrains ADP.
 if (~isfield(parameters,'ATP_ref')) parameters.ATP_ref = 8.0; end
 if (~isfield(parameters,'ADP_ref')) parameters.ADP_ref = getCKEquilibriumADP(parameters.ATP_ref); end
 if (~isfield(parameters,'ATP_i')) parameters.ATP_i = parameters.ATP_ref; end
 if (~isfield(parameters,'ADP_i')) parameters.ADP_i = parameters.ADP_ref; end
-if (~isfield(parameters,'IKATP_Multiplier')) parameters.IKATP_Multiplier = 1; end
+if (~isfield(parameters,'IKATP_Multiplier')) parameters.IKATP_Multiplier = 1; end % scales I_KATP maximal conductance g0
+if (~isfield(parameters,'KATP_Km_Multiplier')) parameters.KATP_Km_Multiplier = 1; end % scales the K_ATP ATP half-inhibition Km (alpha)
+
+% Myofilament (troponin C) Ca2+ sensitivity: multiplier of the Land model ca50 (>1
+% desensitises, e.g. acidosis/Pi; <1 sensitises, e.g. MgADP). Changes TnC Ca2+
+% buffering and hence the free Ca transient.
+if (~isfield(parameters,'ca50_Multiplier')) parameters.ca50_Multiplier = 1; end
 
 % An array of extra parameters (if user-defined, this can be a cell array
 % as well), passing other parameters not defined otherwise in this script

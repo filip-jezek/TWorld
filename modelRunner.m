@@ -83,7 +83,7 @@ ISO = parameters.ISO;
 
 % Intracellular ATP dependence
 atpParams = struct('ATP_i', parameters.ATP_i, 'ADP_i', parameters.ADP_i, 'ATP_ref', parameters.ATP_ref, 'ADP_ref', parameters.ADP_ref, ...
-    'IKATP_Multiplier', parameters.IKATP_Multiplier);
+    'IKATP_Multiplier', parameters.IKATP_Multiplier, 'KATP_Km_Multiplier', parameters.KATP_Km_Multiplier, 'ca50_Multiplier', parameters.ca50_Multiplier);
 
 
 % An array of extra parameters (if user-defined, this can be a cell array

@@ -2,9 +2,9 @@
 % the Ca transient (amplitude, decay time constant) and the action potential.
 % ATP and free ADP affect SERCA, the Na/K pump and the sarcolemmal Ca pump
 % (Cortassa et al. 2006) and the ATP-sensitive K current I_KATP (Ferrero et al.
-% 1996; human version by Mena Tobar et al. 2015). Free ADP is estimated from the
-% creatine kinase equilibrium (getCKEquilibriumADP), given the residual
-% phosphocreatine fraction and pH assumed at each ATP level.
+% 1996; human version by Mena Tobar et al. 2015). Free ADP at 8 mM ATP is the human
+% creatine kinase equilibrium value (getCKEquilibriumADP, ~94 uM); at reduced ATP,
+% phosphocreatine is exhausted and the lowest published ischaemic free ADP is used.
 % See analyses/lowATP for a fuller analysis and write-up.
 %
 % Note: lowering the Na/K pump rate makes [Na]_i drift over minutes, so values
@@ -12,8 +12,7 @@
 clear
 
 ATP_levels = [8.0, 4.0, 2.0]; % [mM]
-fPCr_levels = [1.0, 0.10, 0.05]; % residual phosphocreatine (fraction of normoxic)
-pH_levels = [7.1, 6.4, 6.2]; % intracellular pH
+ADP_levels = [getCKEquilibriumADP(8), 0.182, 0.109]; % free [ADP] (mM)
 beats = 50; % beats simulated per ATP level; only the last is analysed
 ignoreFirst = beats - 1;
 
@@ -30,7 +29,7 @@ for iATP = 1:numel(ATP_levels)
     param.model = @model_TWorld;
     param.bcl = 1000;
     param.ATP_i = ATP_levels(iATP);
-    param.ADP_i = getCKEquilibriumADP(ATP_levels(iATP), fPCr_levels(iATP), pH_levels(iATP));
+    param.ADP_i = ADP_levels(iATP);
 
     [time, X] = modelRunner(X0, options, param, beats, ignoreFirst);
     currents = getCurrentsStructure(time, X, param, 0);

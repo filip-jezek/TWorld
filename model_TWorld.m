@@ -228,8 +228,8 @@ ecl = (1/FoRT)*log(ions_cl_i/ions_cl_o);
 % ATP_i == ATP_ref and ADP_i == ADP_ref reproduce the unmodified model exactly.
 ATP_i = max(atpParams.ATP_i, 1e-6);
 ADP_i = max(atpParams.ADP_i, 0);
-[gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP_i, ADP_i, cellType);
-[gSERCA_ref, gNaK_ref, gPCa_ref, KATP_open_ref] = getNucleotideFactors(atpParams.ATP_ref, atpParams.ADP_ref, cellType);
+[gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP_i, ADP_i, cellType, atpParams.KATP_Km_Multiplier);
+[gSERCA_ref, gNaK_ref, gPCa_ref, KATP_open_ref] = getNucleotideFactors(atpParams.ATP_ref, atpParams.ADP_ref, cellType, atpParams.KATP_Km_Multiplier);
 fATP_SERCA = gSERCA / gSERCA_ref;
 fATP_NaK = gNaK / gNaK_ref;
 fATP_PCa = gPCa / gPCa_ref;
@@ -370,7 +370,7 @@ else
 end
 
 %% Contraction
-[Ta, d_contraction_XS, d_contraction_XW, d_contraction_Ca_TRPN, d_contraction_TmBlocked, d_contraction_ZETAS, d_contraction_ZETAW] = getContractionLand(ions_ca_i, contraction_XS, contraction_XW, contraction_Ca_TRPN, contraction_TmBlocked, contraction_ZETAS, contraction_ZETAW,  fTnI_PKA, fMyBPC_PKA, extraParams);
+[Ta, d_contraction_XS, d_contraction_XW, d_contraction_Ca_TRPN, d_contraction_TmBlocked, d_contraction_ZETAS, d_contraction_ZETAW] = getContractionLand(ions_ca_i, contraction_XS, contraction_XW, contraction_Ca_TRPN, contraction_TmBlocked, contraction_ZETAS, contraction_ZETAW,  fTnI_PKA, fMyBPC_PKA, atpParams.ca50_Multiplier, extraParams);
 
 %% Sodium and Calcium Buffering
 Bmax_Naj = 7.561;       % [mM] 
@@ -1380,7 +1380,7 @@ J_serca = J_serca_np * (1 - phosphorylationTotal) + J_serca_p * phosphorylationT
 end
 
 %% Nucleotide (ATP/ADP) dependence of pumps and K_ATP channels
-function [gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP, ADP, cellType)
+function [gSERCA, gNaK, gPCa, KATP_open] = getNucleotideFactors(ATP, ADP, cellType, KATP_Km_Multiplier)
 % Raw (un-normalised) ATP/ADP factors; ATP and ADP in mM.
 % Pumps follow Cortassa et al. 2006 (Biophys J 91:1564-1589), constants as in the
 % CellML encoding of that model: MgATP activation with competitive ADP inhibition.
@@ -1399,7 +1399,7 @@ else                 % endo
     alphaKATP = 0.32;
 end
 ADP_uM = ADP * 1000;
-KmKATP = alphaKATP * (35.8 + 17.9 * ADP_uM^0.256); % [uM]
+KmKATP = KATP_Km_Multiplier * alphaKATP * (35.8 + 17.9 * ADP_uM^0.256); % [uM]
 HKATP = 1.3 + 4.44 * exp(-0.09 * ADP_uM);
 KATP_open = 1 / (1 + (ATP * 1000 / KmKATP)^HKATP);
 end
@@ -1429,7 +1429,7 @@ I_KATP_junc = Fjunc * GKATP * fATP_KATP * fM * fN_junc * fT * (v - ek);
 I_KATP_sl = Fsl * GKATP * fATP_KATP * fM * fN_sl * fT * (v - ek);
 end
 
-function [Ta, d_contraction_XS, d_contraction_XW, d_contraction_Ca_TRPN, d_contraction_TmBlocked, d_contraction_ZETAS, d_contraction_ZETAW] = getContractionLand(ions_ca_i, contraction_XS, contraction_XW, contraction_Ca_TRPN, contraction_TmBlocked, contraction_ZETAS, contraction_ZETAW, fTnI_PKA, fMyBPC_PKA, extraParams)
+function [Ta, d_contraction_XS, d_contraction_XW, d_contraction_Ca_TRPN, d_contraction_TmBlocked, d_contraction_ZETAS, d_contraction_ZETAW] = getContractionLand(ions_ca_i, contraction_XS, contraction_XW, contraction_Ca_TRPN, contraction_TmBlocked, contraction_ZETAS, contraction_ZETAW, fTnI_PKA, fMyBPC_PKA, ca50_Multiplier, extraParams)
 %==========================================================================
 fracTnIpo = .0031;  % Derived quantity (TnI_PKAp(baseline)/TnItot)
 fPKA_TnI = (1.45-0.45*(1-fTnI_PKA)/(1-fracTnIpo)); % multiplier for Ca unbinding from troponin.
@@ -1463,7 +1463,7 @@ if strcmp(mode,'skinned')
     mu=1;
 else
     nperm=2.036;
-    ca50=fPKA_TnI * 0.76450;
+    ca50=fPKA_TnI * 0.76450 * ca50_Multiplier; % ca50_Multiplier: myofilament (TnC) Ca2+ sensitivity shift
     Tref= 80; %120; % Jakub updated
     nu=10.15996;
     mu=3.94046;
