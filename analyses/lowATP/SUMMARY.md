@@ -58,6 +58,16 @@ sweeps).
 
 ## Results
 
+![Summary: Ca transient and Land tension at 8, 4 and 2 mM ATP](figures/fig0_summary.png)
+
+**Summary figure.** Ca²⁺ transient (left) and Land model active tension (middle) at 8, 4
+and 2 mM ATP, in the lower-bound scenarios (lowest published ischaemic ADP). Right: change
+in CaT amplitude and peak tension relative to 8 mM. Bars are the lower bound. Whiskers run
+from I_KATP g₀ ×0.5 (smallest effect) to the highest published ADP (largest). Tension falls
+more than the CaT, because the Land model's force–Ca²⁺ relation is steep: −5.8 % CaT gives
+−6.9 % tension, and −13.1 % gives −16.7 %. Figure script:
+[`makeSummaryFigure.m`](makeSummaryFigure.m).
+
 Changes are relative to 8 mM at matched myofilament sensitivity.
 
 | | 4 mM ATP | 2 mM ATP |
